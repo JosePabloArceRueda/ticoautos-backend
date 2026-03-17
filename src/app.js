@@ -1,5 +1,9 @@
-const express = require("express");
-const cors = require("cors");
+const express = require('express');
+const cors = require('cors');
+require('dotenv').config();
+
+const authRoutes = require('./routes/auth.routes');
+const meRoutes = require('./routes/me.routes');
 
 const app = express();
 
@@ -7,9 +11,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Route of healthcheck
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok", uptime: process.uptime() });
+// Health check
+app.get('/health', (req, res) => {
+  const uptime = process.uptime();
+  res.status(200).json({ status: 'ok', uptime });
 });
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/me', meRoutes);
 
 module.exports = app;

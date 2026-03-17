@@ -7,33 +7,29 @@ function connectToDatabase() {
     return;
   }
 
-  // Conexión
-  mongoose.connect(uri, {
-    // Puedes ajustar timeouts si no quieres esperar mucho:
-    // serverSelectionTimeoutMS: 5000,
-    // heartbeatFrequencyMS: 10000,
-  });
+  // connection
+  mongoose.connect(uri, {});
 
   const db = mongoose.connection;
 
   db.on('connecting', () => {
-    console.log('[DB] Intentando conectar a MongoDB…');
+    console.log('[DB] trying to connect with MongoDB…');
   });
 
   db.on('error', (err) => {
-    console.error('[DB] Error de conexión:', err.message);
+    console.error('[DB] Connection error:', err.message);
   });
 
   db.on('connected', () => {
-    console.log('[DB] Conexión establecida a MongoDB');
+    console.log('[DB] Connection established to MongoDB');
   });
 
   db.on('disconnected', () => {
-    console.warn('[DB] Conexión a MongoDB perdida');
+    console.warn('[DB] Connection to MongoDB lost');
   });
 
   db.on('reconnected', () => {
-    console.log('[DB] Reconectado a MongoDB');
+    console.log('[DB] Reconnected to MongoDB');
   });
 }
 
