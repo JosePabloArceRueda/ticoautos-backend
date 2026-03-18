@@ -50,6 +50,12 @@ const vehicleSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    images: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

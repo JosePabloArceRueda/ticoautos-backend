@@ -6,18 +6,18 @@ const User = require('../models/User');
 
 const router = express.Router();
 
-// Middleware valdation errors 
+// Middleware to handle validation errors
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400);
+    return res.status(400).json({ errors: errors.array() });
   }
   next();
 };
 
 /**
  * POST /api/auth/register
- * Register a new user and return JWT
+ * Register a new user
  */
 router.post(
   '/register',
@@ -25,33 +25,33 @@ router.post(
     body('name')
       .trim()
       .notEmpty()
-      .withMessage('El nombre es requerido')
+      .withMessage('Name is required')
       .isLength({ min: 2, max: 80 })
-      .withMessage('El nombre debe tener entre 2 y 80 caracteres'),
+      .withMessage('Name must be between 2 and 80 characters'),
     body('email')
       .isEmail()
-      .withMessage('Email inválido')
+      .withMessage('Invalid email')
       .normalizeEmail()
       .custom(async (email) => {
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-          throw new Error('El email ya está registrado');
+          throw new Error('Email already registered');
         }
       }),
     body('password')
       .isLength({ min: 8 })
-      .withMessage('La contraseña debe tener al menos 8 caracteres'),
+      .withMessage('Password must be at least 8 characters'),
   ],
   handleValidationErrors,
   async (req, res) => {
     try {
       const { name, email, password } = req.body;
 
-      // Hashear password
+      // Hash password
       const saltRounds = 10;
       const passwordHash = await bcrypt.hash(password, saltRounds);
 
-      // create user
+      // Create user
       const user = new User({
         name,
         email,
@@ -67,8 +67,8 @@ router.post(
         createdAt: user.createdAt,
       });
     } catch (error) {
-      console.error('[Auth] Error en registro:', error);
-      res.status(500);
+      console.error('[Auth] Error in register:', error);
+      res.status(500).end();
     }
   }
 );
@@ -80,8 +80,8 @@ router.post(
 router.post(
   '/login',
   [
-    body('email').isEmail().withMessage('Email inválido').normalizeEmail(),
-    body('password').notEmpty().withMessage('La contraseña es requerida'),
+    body('email').isEmail().withMessage('Invalid email').normalizeEmail(),
+    body('password').notEmpty().withMessage('Password is required'),
   ],
   handleValidationErrors,
   async (req, res) => {
@@ -92,14 +92,14 @@ router.post(
       const user = await User.findOne({ email }).select('+passwordHash');
 
       if (!user) {
-        return res.status(401);
+        return res.status(401).end();
       }
 
       // Compare password
       const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
       if (!isPasswordValid) {
-        return res.status(401);
+        return res.status(401).end();
       }
 
       // Generate JWT
@@ -118,8 +118,8 @@ router.post(
         },
       });
     } catch (error) {
-      console.error('[Auth] Error en login:', error);
-      res.status(500);
+      console.error('[Auth] Error in login:', error);
+      res.status(500).end();
     }
   }
 );
