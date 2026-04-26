@@ -3,7 +3,9 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+const passport = require('./config/passport');
 const authRoutes = require('./routes/auth.routes');
+const authGoogleRoutes = require('./routes/auth.google.routes');
 const meRoutes = require('./routes/me.routes');
 const vehiclesPublicRoutes = require('./routes/vehicles.public.routes');
 const vehiclesPrivateRoutes = require('./routes/vehicles.private.routes');
@@ -14,6 +16,7 @@ const app = express();
 // Middlewares
 app.use(cors());
 app.use(express.json());
+app.use(passport.initialize());
 
 // Serve static files from uploads folder
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -26,6 +29,7 @@ app.get('/health', (req, res) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', authGoogleRoutes);
 app.use('/api/me', meRoutes);
 app.use('/api/vehicles', vehiclesPublicRoutes);
 app.use('/api/vehicles', vehiclesPrivateRoutes);
