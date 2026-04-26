@@ -18,6 +18,9 @@ const handleValidationErrors = (req, res, next) => {
 /**
  * POST /api/auth/register
  * Register a new user
+ * NOTE: En Tarea 2 se agrega cédula y los campos name/lastName
+ * serán autocompletados desde el padrón electoral.
+ * NOTE: En Tarea 3 el status pasará a 'pending' y se enviará email de verificación.
  */
 router.post(
   '/register',
@@ -25,37 +28,51 @@ router.post(
     body('name')
       .trim()
       .notEmpty()
-      .withMessage('Name is required')
+      .withMessage('El nombre es requerido')
       .isLength({ min: 2, max: 80 })
-      .withMessage('Name must be between 2 and 80 characters'),
+      .withMessage('El nombre debe tener entre 2 y 80 caracteres'),
+    body('lastName')
+      .trim()
+      .notEmpty()
+      .withMessage('Los apellidos son requeridos')
+      .isLength({ min: 2, max: 120 })
+      .withMessage('Los apellidos deben tener entre 2 y 120 caracteres'),
     body('email')
       .isEmail()
-      .withMessage('Invalid email')
+      .withMessage('Email inválido')
       .normalizeEmail()
       .custom(async (email) => {
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-          throw new Error('Email already registered');
+          throw new Error('El email ya está registrado');
         }
       }),
     body('password')
       .isLength({ min: 8 })
-      .withMessage('Password must be at least 8 characters'),
+      .withMessage('La contraseña debe tener al menos 8 caracteres'),
+    body('phone')
+      .trim()
+      .notEmpty()
+      .withMessage('El teléfono es requerido')
+      .matches(/^\d{8}$/)
+      .withMessage('El teléfono debe ser un número de 8 dígitos'),
   ],
   handleValidationErrors,
   async (req, res) => {
     try {
-      const { name, email, password } = req.body;
+      const { name, lastName, email, password, phone } = req.body;
 
-      // Hash password
       const saltRounds = 10;
       const passwordHash = await bcrypt.hash(password, saltRounds);
 
-      // Create user
       const user = new User({
         name,
+        lastName,
         email,
+        phone,
         passwordHash,
+        authProvider: 'local',
+        status: 'active', // Tarea 3 cambiará esto a 'pending' con verificación por email
       });
 
       await user.save();
@@ -63,7 +80,10 @@ router.post(
       res.status(201).json({
         id: user._id,
         name: user.name,
+        lastName: user.lastName,
         email: user.email,
+        phone: user.phone,
+        status: user.status,
         createdAt: user.createdAt,
       });
     } catch (error) {
@@ -88,21 +108,26 @@ router.post(
     try {
       const { email, password } = req.body;
 
-      // Search user (include passwordHash with select)
       const user = await User.findOne({ email }).select('+passwordHash');
 
       if (!user) {
         return res.status(401).end();
       }
 
-      // Compare password
+      // Usuarios de Google no pueden hacer login con contraseña
+      if (user.authProvider !== 'local' || !user.passwordHash) {
+        return res.status(401).json({ message: 'Usa Google para ingresar con esta cuenta' });
+      }
+
       const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
       if (!isPasswordValid) {
         return res.status(401).end();
       }
 
-      // Generate JWT
+      // NOTE: Tarea 3 agrega validación de status === 'active' aquí
+      // NOTE: Tarea 5 agrega 2FA aquí (retornará tempToken en vez de accessToken)
+
       const token = jwt.sign(
         { userId: user._id, email: user.email },
         process.env.JWT_SECRET,
@@ -114,7 +139,10 @@ router.post(
         user: {
           id: user._id,
           name: user.name,
+          lastName: user.lastName,
           email: user.email,
+          phone: user.phone,
+          status: user.status,
         },
       });
     } catch (error) {

@@ -30,7 +30,13 @@ router.get('/', authMiddleware, async (req, res) => {
     res.status(200).json({
       id: user._id,
       name: user.name,
+      lastName: user.lastName,
       email: user.email,
+      phone: user.phone,
+      cedula: user.cedula,
+      birthDate: user.birthDate,
+      authProvider: user.authProvider,
+      status: user.status,
       createdAt: user.createdAt,
     });
   } catch (error) {
