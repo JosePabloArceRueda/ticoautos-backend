@@ -1,9 +1,11 @@
 const express = require('express');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { validateCedula, parseBirthDate } = require('../services/padron.service');
+const { sendVerificationEmail } = require('../services/email.service');
 
 const router = express.Router();
 
@@ -70,6 +72,8 @@ router.post(
       const saltRounds = 10;
       const passwordHash = await bcrypt.hash(password, saltRounds);
 
+      const verificationToken = crypto.randomBytes(32).toString('hex');
+
       const user = new User({
         cedula,
         name: person.nombre,
@@ -79,10 +83,21 @@ router.post(
         phone,
         passwordHash,
         authProvider: 'local',
-        status: 'active',
+        status: 'pending',
+        emailVerificationToken: verificationToken,
+        emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
       });
 
       await user.save();
+
+      try {
+        await sendVerificationEmail(user, verificationToken);
+      } catch (emailError) {
+        // Roll back user creation so they can retry registration
+        await user.deleteOne();
+        console.error('[Auth] SendGrid error:', emailError?.response?.body ?? emailError.message);
+        return res.status(502).json({ message: 'No se pudo enviar el correo de verificación. Intentá de nuevo.' });
+      }
 
       res.status(201).json({
         id: user._id,
@@ -134,7 +149,11 @@ router.post(
         return res.status(401).end();
       }
 
-      
+      if (user.status === 'pending') {
+        return res.status(403).json({ message: 'Debes verificar tu correo electrónico antes de ingresar' });
+      }
+
+      // NOTE: Task 5 will add 2FA here (returns tempToken instead of accessToken)
 
       const token = jwt.sign(
         { userId: user._id, email: user.email },
@@ -159,5 +178,38 @@ router.post(
     }
   }
 );
+
+/**
+ * GET /api/auth/verify-email?token=xxx
+ * Activate user account from the link sent by email.
+ */
+router.get('/verify-email', async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ message: 'Token requerido' });
+    }
+
+    const user = await User.findOne({
+      emailVerificationToken: token,
+      emailVerificationExpires: { $gt: new Date() },
+    }).select('+emailVerificationToken +emailVerificationExpires');
+
+    if (!user) {
+      return res.status(400).json({ message: 'El enlace de verificación es inválido o ha expirado' });
+    }
+
+    user.status = 'active';
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save();
+
+    res.status(200).json({ message: 'Cuenta activada correctamente. Ya podés ingresar.' });
+  } catch (error) {
+    console.error('[Auth] Error in verify-email:', error);
+    res.status(500).end();
+  }
+});
 
 module.exports = router;

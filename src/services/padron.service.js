@@ -6,7 +6,7 @@ const MIN_AGE = 18;
  * Returns person data or null if not found.
  */
 async function lookupCedula(cedula) {
-  const response = await fetch(`${TSE_API_URL}/cedula=${cedula}`);
+  const response = await fetch(`${TSE_API_URL}/${cedula}`);
 
   if (!response.ok) {
     throw new Error(`TSE API responded with status ${response.status}`);

@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema(
   {
-    // --- Datos personales (autocompletados desde el padrón electoral) ---
+    // Personal Data
     name: {
       type: String,
       required: [true, 'El nombre es requerido'],
@@ -20,14 +20,14 @@ const userSchema = new mongoose.Schema(
     cedula: {
       type: String,
       unique: true,
-      sparse: true, // permite null para usuarios de Google antes de completar registro
+      sparse: true, // permit null for google user before completing registration
       trim: true,
     },
     birthDate: {
       type: Date,
     },
 
-    // --- Contacto ---
+    // Contact
     email: {
       type: String,
       required: [true, 'El email es requerido'],
@@ -43,7 +43,7 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // --- Autenticación ---
+    // AUTH
     authProvider: {
       type: String,
       enum: ['local', 'google'],
@@ -51,23 +51,23 @@ const userSchema = new mongoose.Schema(
     },
     passwordHash: {
       type: String,
-      // No requerido: usuarios de Google no tienen contraseña local
+      // Users google not have access to password login
       select: false,
     },
     googleId: {
       type: String,
       unique: true,
-      sparse: true, // null para usuarios locales
+      sparse: true, // null local users
     },
 
-    // --- Estado de la cuenta ---
+    // Status account 
     status: {
       type: String,
       enum: ['pending', 'active'],
       default: 'pending',
     },
 
-    // --- Verificación de correo ---
+    // verification with mail
     emailVerificationToken: {
       type: String,
       select: false,
@@ -77,7 +77,7 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
-    // --- 2FA por SMS ---
+    // 2FA with SMS
     twoFactorCode: {
       type: String,
       select: false,
