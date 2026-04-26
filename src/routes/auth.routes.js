@@ -6,6 +6,7 @@ const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { validateCedula, parseBirthDate } = require('../services/padron.service');
 const { sendVerificationEmail } = require('../services/email.service');
+const { generateOTP, sendSMSCode } = require('../services/sms.service');
 
 const router = express.Router();
 
@@ -153,7 +154,92 @@ router.post(
         return res.status(403).json({ message: 'Debes verificar tu correo electrónico antes de ingresar' });
       }
 
-      // NOTE: Task 5 will add 2FA here (returns tempToken instead of accessToken)
+      // Generate OTP, save it and send via SMS
+      const otp = generateOTP();
+      user.twoFactorCode = otp;
+      user.twoFactorExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+      await user.save();
+
+      try {
+        await sendSMSCode(user.phone, otp);
+      } catch (smsError) {
+        console.error('[Auth] Twilio error:', smsError?.message);
+        return res.status(502).json({ message: 'No se pudo enviar el código SMS. Intentá de nuevo.' });
+      }
+
+      // Return a short-lived tempToken — frontend uses it to call /verify-2fa
+      const tempToken = jwt.sign(
+        { userId: user._id, intent: '2fa' },
+        process.env.JWT_SECRET,
+        { expiresIn: '10m' }
+      );
+
+      res.status(200).json({
+        requiresTwoFactor: true,
+        tempToken,
+        message: `Código enviado al teléfono terminado en ${user.phone.slice(-4)}`,
+      });
+    } catch (error) {
+      console.error('[Auth] Error in login:', error);
+      res.status(500).end();
+    }
+  }
+);
+
+/**
+ * POST /api/auth/verify-2fa
+ * Body: { tempToken, code }
+ * Validates the OTP sent by SMS and returns the full JWT.
+ */
+router.post(
+  '/verify-2fa',
+  [
+    body('tempToken').notEmpty().withMessage('Token requerido'),
+    body('code')
+      .trim()
+      .notEmpty()
+      .withMessage('El código es requerido')
+      .matches(/^\d{6}$/)
+      .withMessage('El código debe ser de 6 dígitos'),
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const { tempToken, code } = req.body;
+
+      let decoded;
+      try {
+        decoded = jwt.verify(tempToken, process.env.JWT_SECRET);
+      } catch {
+        return res.status(401).json({ message: 'Token inválido o expirado. Iniciá sesión de nuevo.' });
+      }
+
+      if (decoded.intent !== '2fa') {
+        return res.status(401).json({ message: 'Token inválido' });
+      }
+
+      const user = await User.findById(decoded.userId).select('+twoFactorCode +twoFactorExpires');
+
+      if (!user) {
+        return res.status(401).end();
+      }
+
+      if (!user.twoFactorCode || !user.twoFactorExpires) {
+        return res.status(400).json({ message: 'No hay un código activo. Iniciá sesión de nuevo.' });
+      }
+
+      if (new Date() > user.twoFactorExpires) {
+        return res.status(400).json({ message: 'El código expiró. Iniciá sesión de nuevo.' });
+      }
+
+      if (user.twoFactorCode !== code) {
+        return res.status(401).json({ message: 'Código incorrecto' });
+      }
+
+      // Clear OTP and issue full JWT
+      user.twoFactorCode = undefined;
+      user.twoFactorExpires = undefined;
+      await user.save();
 
       const token = jwt.sign(
         { userId: user._id, email: user.email },
@@ -173,7 +259,7 @@ router.post(
         },
       });
     } catch (error) {
-      console.error('[Auth] Error in login:', error);
+      console.error('[Auth] Error in verify-2fa:', error);
       res.status(500).end();
     }
   }
