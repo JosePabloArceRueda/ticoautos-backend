@@ -1,4 +1,4 @@
-const TSE_API_URL = process.env.TSE_API_URL || 'http://localhost:4000';
+const TSE_API_URL = process.env.TSE_API_URL || 'http://localhost:4000/api/v2/cedula';
 const MIN_AGE = 18;
 
 /**
