@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
+const { validateCedula, parseBirthDate } = require('../services/padron.service');
 
 const router = express.Router();
 
@@ -17,26 +18,18 @@ const handleValidationErrors = (req, res, next) => {
 
 /**
  * POST /api/auth/register
- * Register a new user
- * NOTE: En Tarea 2 se agrega cédula y los campos name/lastName
- * serán autocompletados desde el padrón electoral.
- * NOTE: En Tarea 3 el status pasará a 'pending' y se enviará email de verificación.
+ * Body: { cedula, email, password, phone }
+ * name, lastName and birthDate are auto-filled from the TSE padrón API.
  */
 router.post(
   '/register',
   [
-    body('name')
+    body('cedula')
       .trim()
       .notEmpty()
-      .withMessage('El nombre es requerido')
-      .isLength({ min: 2, max: 80 })
-      .withMessage('El nombre debe tener entre 2 y 80 caracteres'),
-    body('lastName')
-      .trim()
-      .notEmpty()
-      .withMessage('Los apellidos son requeridos')
-      .isLength({ min: 2, max: 120 })
-      .withMessage('Los apellidos deben tener entre 2 y 120 caracteres'),
+      .withMessage('La cédula es requerida')
+      .matches(/^\d{9}$/)
+      .withMessage('La cédula debe ser un número de 9 dígitos'),
     body('email')
       .isEmail()
       .withMessage('Email inválido')
@@ -60,27 +53,43 @@ router.post(
   handleValidationErrors,
   async (req, res) => {
     try {
-      const { name, lastName, email, password, phone } = req.body;
+      const { cedula, email, password, phone } = req.body;
+
+      // Check cedula not already registered
+      const existingCedula = await User.findOne({ cedula });
+      if (existingCedula) {
+        return res.status(400).json({ message: 'Esta cédula ya está registrada' });
+      }
+
+      // Validate cedula against TSE padrón and check age
+      const { valid, person, error } = await validateCedula(cedula);
+      if (!valid) {
+        return res.status(400).json({ message: error });
+      }
 
       const saltRounds = 10;
       const passwordHash = await bcrypt.hash(password, saltRounds);
 
       const user = new User({
-        name,
-        lastName,
+        cedula,
+        name: person.nombre,
+        lastName: `${person.primerApellido} ${person.segundoApellido}`.trim(),
+        birthDate: parseBirthDate(person.fechaNacimiento),
         email,
         phone,
         passwordHash,
         authProvider: 'local',
-        status: 'active', // Tarea 3 cambiará esto a 'pending' con verificación por email
+        status: 'active',
       });
 
       await user.save();
 
       res.status(201).json({
         id: user._id,
+        cedula: user.cedula,
         name: user.name,
         lastName: user.lastName,
+        birthDate: user.birthDate,
         email: user.email,
         phone: user.phone,
         status: user.status,
@@ -114,7 +123,7 @@ router.post(
         return res.status(401).end();
       }
 
-      // Usuarios de Google no pueden hacer login con contraseña
+      // user goolge no access to login with password
       if (user.authProvider !== 'local' || !user.passwordHash) {
         return res.status(401).json({ message: 'Usa Google para ingresar con esta cuenta' });
       }
@@ -125,8 +134,7 @@ router.post(
         return res.status(401).end();
       }
 
-      // NOTE: Tarea 3 agrega validación de status === 'active' aquí
-      // NOTE: Tarea 5 agrega 2FA aquí (retornará tempToken en vez de accessToken)
+      
 
       const token = jwt.sign(
         { userId: user._id, email: user.email },
