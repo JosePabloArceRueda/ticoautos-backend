@@ -1,5 +1,10 @@
 require('dotenv').config();
 const os = require('os');
+const { createHandler } = require('graphql-http/lib/use/express');
+const { makeExecutableSchema } = require('@graphql-tools/schema');
+const { typeDefs } = require('./graphql/schema');
+const { resolvers } = require('./graphql/resolvers');
+const { buildContext } = require('./graphql/context');
 const app = require('./app');
 const { connectToDatabase } = require('./config/db');
 
@@ -21,6 +26,9 @@ const startServer = async () => {
   try {
     await connectToDatabase();
 
+    const schema = makeExecutableSchema({ typeDefs, resolvers });
+    app.all('/graphql', createHandler({ schema, context: buildContext }));
+
     const localIP = getLocalIP();
 
     // In development, use LAN IP for FRONTEND_URL so email verification
@@ -34,6 +42,7 @@ const startServer = async () => {
       console.log(`[ticoautos-backend] Local:   http://localhost:${PORT}`);
       console.log(`[ticoautos-backend] Network: http://${localIP}:${PORT}`);
       console.log(`[ticoautos-backend] Frontend URL (emails): ${process.env.FRONTEND_URL}`);
+      console.log(`[ticoautos-backend] GraphQL:  http://localhost:${PORT}/graphql`);
     });
   } catch (error) {
     console.error('[Server] Error starting server:', error);

@@ -12,8 +12,7 @@ function generateOTP() {
 /**
  * Send a 2FA SMS code to the given phone number.
  * In Twilio trial accounts, the destination number must be verified
- * in the Twilio console — but the number itself always comes from
- * the user's profile, never hardcoded.
+ * in the Twilio console
  */
 async function sendSMSCode(toPhone, code) {
   const formattedPhone = toPhone.startsWith('+') ? toPhone : `+506${toPhone}`;
