@@ -9,7 +9,8 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
  * Send account verification email with a unique activation link.
  */
 async function sendVerificationEmail(user, token) {
-  const verificationUrl = `${FRONTEND_URL}/verify-email?token=${token}`;
+  const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+  const verificationUrl = `${backendUrl}/api/auth/verify-email?token=${token}`;
 
   const msg = {
     to: user.email,

@@ -268,13 +268,15 @@ router.post(
 /**
  * GET /api/auth/verify-email?token=xxx
  * Activate user account from the link sent by email.
+ * Redirects to frontend after verification.
  */
 router.get('/verify-email', async (req, res) => {
   try {
     const { token } = req.query;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
     if (!token) {
-      return res.status(400).json({ message: 'Token requerido' });
+      return res.redirect(`${frontendUrl}/verify-email?error=token_required`);
     }
 
     const user = await User.findOne({
@@ -283,7 +285,7 @@ router.get('/verify-email', async (req, res) => {
     }).select('+emailVerificationToken +emailVerificationExpires');
 
     if (!user) {
-      return res.status(400).json({ message: 'El enlace de verificación es inválido o ha expirado' });
+      return res.redirect(`${frontendUrl}/verify-email?error=invalid_or_expired`);
     }
 
     user.status = 'active';
@@ -291,11 +293,39 @@ router.get('/verify-email', async (req, res) => {
     user.emailVerificationExpires = undefined;
     await user.save();
 
-    res.status(200).json({ message: 'Cuenta activada correctamente. Ya podés ingresar.' });
+    res.redirect(`${frontendUrl}/verify-email?success=true`);
   } catch (error) {
     console.error('[Auth] Error in verify-email:', error);
-    res.status(500).end();
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    res.redirect(`${frontendUrl}/verify-email?error=server_error`);
   }
+});
+
+/**
+ * GET /api/auth/validate-cedula/:cedula
+ * Lookup a cedula in the TSE padrón and check minimum age.
+ * Used by the frontend to auto-fill name/lastName before registration.
+ */
+router.get('/validate-cedula/:cedula', async (req, res) => {
+  const { cedula } = req.params;
+
+  if (!/^\d{9}$/.test(cedula)) {
+    return res.status(400).json({ message: 'La cédula debe tener 9 dígitos' });
+  }
+
+  const { valid, person, error } = await validateCedula(cedula);
+
+  if (!valid) {
+    if (error.includes('no existe')) return res.status(404).json({ message: error });
+    if (error.includes('mayor')) return res.status(422).json({ message: error });
+    return res.status(503).json({ message: error });
+  }
+
+  res.status(200).json({
+    name: person.nombre,
+    lastName: `${person.primerApellido} ${person.segundoApellido}`.trim(),
+    birthDate: parseBirthDate(person.fechaNacimiento),
+  });
 });
 
 module.exports = router;
