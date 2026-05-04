@@ -82,12 +82,6 @@ router.post(
       .withMessage('La cédula es requerida')
       .matches(/^\d{9}$/)
       .withMessage('La cédula debe ser un número de 9 dígitos'),
-    body('phone')
-      .trim()
-      .notEmpty()
-      .withMessage('El teléfono es requerido')
-      .matches(/^\d{8}$/)
-      .withMessage('El teléfono debe ser un número de 8 dígitos'),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -96,7 +90,7 @@ router.post(
     }
 
     try {
-      const { tempToken, cedula, phone } = req.body;
+      const { tempToken, cedula } = req.body;
 
       // Verify and decode the temp token from Google callback
       let decoded;
@@ -132,8 +126,6 @@ router.post(
         return res.status(400).json({ message: error });
       }
 
-      const verificationToken = crypto.randomBytes(32).toString('hex');
-
       const user = new User({
         googleId: decoded.googleId,
         cedula,
@@ -141,22 +133,11 @@ router.post(
         lastName: `${person.primerApellido} ${person.segundoApellido}`.trim(),
         birthDate: parseBirthDate(person.fechaNacimiento),
         email: decoded.email,
-        phone,
         authProvider: 'google',
-        status: 'pending',
-        emailVerificationToken: verificationToken,
-        emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        status: 'active',
       });
 
       await user.save();
-
-      try {
-        await sendVerificationEmail(user, verificationToken);
-      } catch (emailError) {
-        await user.deleteOne();
-        console.error('[Google Register] SendGrid error:', emailError?.response?.body ?? emailError.message);
-        return res.status(502).json({ message: 'No se pudo enviar el correo de verificación. Intentá de nuevo.' });
-      }
 
       res.status(201).json({
         id: user._id,
@@ -164,7 +145,6 @@ router.post(
         name: user.name,
         lastName: user.lastName,
         email: user.email,
-        phone: user.phone,
         status: user.status,
         createdAt: user.createdAt,
       });
