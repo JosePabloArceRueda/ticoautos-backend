@@ -6,6 +6,7 @@ const Vehicle = require('../models/Vehicle');
 const Question = require('../models/Question');
 const Answer = require('../models/Answer');
 const User = require('../models/User');
+const { containsContactInfo } = require('../services/ai.service');
 
 const router = express.Router();
 
@@ -13,7 +14,7 @@ const router = express.Router();
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400);
+    return res.sendStatus(400);
   }
   next();
 };
@@ -44,27 +45,32 @@ router.post(
       const { text } = req.body;
       const userId = req.user.id;
 
-      // Verify vehicle exists
       const vehicle = await Vehicle.findById(vehicleId);
       if (!vehicle) {
-        return res.status(404);
+        return res.sendStatus(404);
       }
 
-      // Validate that user is not the vehicle owner
       if (vehicle.owner.toString() === userId) {
-        return res.status(403);
+        return res.sendStatus(403);
       }
 
       const ownerId = vehicle.owner.toString();
 
-      // Check if chat already exists between this interested user and this vehicle
+      // AI validation: reject messages with contact info
+      const aiCheck = await containsContactInfo(text);
+      if (aiCheck.detected) {
+        return res.status(422).json({
+          error: 'Mensaje rechazado',
+          message: 'Tu mensaje contiene información de contacto. Por seguridad, las comunicaciones deben realizarse dentro de la plataforma.',
+        });
+      }
+
       let chat = await Question.findOne({
         vehicle: vehicleId,
         interested: userId,
       });
 
       if (chat) {
-        // Chat already exists, add message
         const message = new Answer({
           chat: chat._id,
           sender: userId,
@@ -82,7 +88,6 @@ router.post(
         });
       }
 
-      // Create new chat
       chat = new Question({
         vehicle: vehicleId,
         interested: userId,
@@ -91,7 +96,6 @@ router.post(
 
       await chat.save();
 
-      // Create first message
       const message = new Answer({
         chat: chat._id,
         sender: userId,
@@ -113,19 +117,18 @@ router.post(
     } catch (error) {
       console.error('[Q&A] Error iniciado el chat:', error);
       if (error.code === 11000) {
-        // Chat already exists, search and return
         try {
           const { vehicleId } = req.params;
           const existingChat = await Question.findOne({
             vehicle: vehicleId,
             interested: req.user.id,
           });
-          return res.status(409);
+          return res.sendStatus(409);
         } catch (e) {
-          return res.status(500);
+          return res.sendStatus(500);
         }
       }
-      res.status(500);
+      res.sendStatus(500);
     }
   }
 );
@@ -157,36 +160,37 @@ router.post(
       const { text } = req.body;
       const userId = req.user.id;
 
-      // Verify chat exists
       const chat = await Question.findById(chatId);
       if (!chat) {
-        return res.status(404);
+        return res.sendStatus(404);
       }
 
-      // Validate that user is interested or owner
       const isInterested = chat.interested.toString() === userId;
       const isOwner = chat.owner.toString() === userId;
 
       if (!isInterested && !isOwner) {
-        return res.status(403)
+        return res.sendStatus(403);
       }
 
-      // Get last message to validate alternation
       const lastMessage = await Answer.findOne({ chat: chatId }).sort({
         createdAt: -1,
       });
 
-      // If there is a previous message, validate that it is not from the same user
-      if (lastMessage) {
-        if (lastMessage.sender.toString() === userId) {
-          return res.status(422);
-        }
+      if (lastMessage && lastMessage.sender.toString() === userId) {
+        return res.sendStatus(422);
       }
 
-      // Determine message type
+      // AI validation: reject messages with contact info
+      const aiCheck = await containsContactInfo(text);
+      if (aiCheck.detected) {
+        return res.status(422).json({
+          error: 'Mensaje rechazado',
+          message: 'Tu mensaje contiene información de contacto. Por seguridad, las comunicaciones deben realizarse dentro de la plataforma.',
+        });
+      }
+
       const messageType = isInterested ? 'question' : 'answer';
 
-      // Create message
       const message = new Answer({
         chat: chatId,
         sender: userId,
@@ -200,7 +204,7 @@ router.post(
       res.status(201).json(message);
     } catch (error) {
       console.error('[Q&A] Error enviando mensaje:', error);
-      res.status(500);
+      res.sendStatus(500);
     }
   }
 );
@@ -225,22 +229,20 @@ router.get(
       const userId = req.user.id;
       const { page = 1, limit = 50 } = req.query;
 
-      // Verify chat exists
       const chat = await Question.findById(chatId)
         .populate('vehicle', 'brand model')
         .populate('interested', 'name email')
         .populate('owner', 'name email');
 
       if (!chat) {
-        return res.status(404);
+        return res.sendStatus(404);
       }
 
-      // Validate that user is interested or owner
       const isInterested = chat.interested._id.toString() === userId;
       const isOwner = chat.owner._id.toString() === userId;
 
       if (!isInterested && !isOwner) {
-        return res.status(403);
+        return res.sendStatus(403);
       }
 
       const pageNum = parseInt(page);
@@ -250,7 +252,7 @@ router.get(
       const total = await Answer.countDocuments({ chat: chatId });
       const messages = await Answer.find({ chat: chatId })
         .populate('sender', 'name')
-        .sort({ createdAt: 1 }) // Chronological order
+        .sort({ createdAt: 1 })
         .skip(skip)
         .limit(limitNum);
 
@@ -266,7 +268,7 @@ router.get(
       });
     } catch (error) {
       console.error('[Q&A] Error recuperando mensaje:', error);
-      res.status(500);
+      res.sendStatus(500);
     }
   }
 );
@@ -292,7 +294,6 @@ router.get('/me/chats/as-interested', authMiddleware, async (req, res) => {
       .skip(skip)
       .limit(limitNum);
 
-    // Get last message from each chat
     const chatsWithLastMessage = await Promise.all(
       chats.map(async (chat) => {
         const lastMessage = await Answer.findOne({ chat: chat._id })
@@ -317,7 +318,7 @@ router.get('/me/chats/as-interested', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     console.error('[Q&A] Error al recuperar chats:', error);
-    res.status(500);
+    res.sendStatus(500);
   }
 });
 
@@ -342,7 +343,6 @@ router.get('/me/chats/as-owner', authMiddleware, async (req, res) => {
       .skip(skip)
       .limit(limitNum);
 
-    // Get last message from each chat
     const chatsWithLastMessage = await Promise.all(
       chats.map(async (chat) => {
         const lastMessage = await Answer.findOne({ chat: chat._id })
@@ -367,7 +367,7 @@ router.get('/me/chats/as-owner', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     console.error('[Q&A] Error al recuperar los chats del propietario:', error);
-    res.status(500);
+    res.sendStatus(500);
   }
 });
 
@@ -390,7 +390,6 @@ router.get(
       const { vehicleId } = req.params;
       const userId = req.user.id;
 
-      // Check if chat exists as interested user
       const chatAsInterested = await Question.findOne({
         vehicle: vehicleId,
         interested: userId,
@@ -405,7 +404,6 @@ router.get(
         });
       }
 
-      // Check if chat exists as owner
       const chatAsOwner = await Question.findOne({
         vehicle: vehicleId,
         owner: userId,
@@ -425,7 +423,7 @@ router.get(
       });
     } catch (error) {
       console.error('[Q&A] Error en obtener estado del chat:', error);
-      res.status(500);
+      res.sendStatus(500);
     }
   }
 );

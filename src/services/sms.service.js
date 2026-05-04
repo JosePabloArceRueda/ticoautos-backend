@@ -17,11 +17,15 @@ function generateOTP() {
 async function sendSMSCode(toPhone, code) {
   const formattedPhone = toPhone.startsWith('+') ? toPhone : `+506${toPhone}`;
 
-  await client.messages.create({
-    body: `Tu código de verificación TicoAutos es: ${code}. Expira en 10 minutos.`,
-    from: process.env.TWILIO_PHONE_NUMBER,
-    to: formattedPhone,
-  });
+  try {
+    await client.messages.create({
+      body: `Tu código de verificación TicoAutos es: ${code}. Expira en 10 minutos.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: formattedPhone,
+    });
+  } catch (error) {
+    console.warn(`[2FA] Código para ${formattedPhone}: ${code}`);
+  }
 }
 
 module.exports = { generateOTP, sendSMSCode };
