@@ -1,24 +1,24 @@
 # TicoAutos Backend
 
-REST API and GraphQL server for TicoAutos, a vehicle marketplace platform for Costa Rica. Built with Node.js, Express 5, and MongoDB.
+API REST y servidor GraphQL para TicoAutos, una plataforma de compraventa de vehículos en Costa Rica. Construido con Node.js, Express 5 y MongoDB.
 
 ---
 
-## Requirements
+## Requisitos
 
-- Node.js 18 or higher
-- MongoDB 6 or higher
-- [TSE Padrón Electoral API](https://github.com/Santaval/tse-api) running locally (required for cedula validation)
-- A Twilio account (SMS 2FA)
-- A SendGrid account (email verification)
-- A Google Cloud project with OAuth 2.0 credentials
-- A Groq account (AI chat validation)
+- Node.js 18 o superior
+- MongoDB 6 o superior
+- [TSE Padrón Electoral API](https://github.com/Santaval/tse-api) corriendo localmente (requerido para validación de cédula)
+- Cuenta de Twilio (2FA por SMS)
+- Cuenta de SendGrid (verificación de correo)
+- Proyecto en Google Cloud con credenciales OAuth 2.0
+- Cuenta de Groq (validación de mensajes con IA)
 
 ---
 
-## Setup
+## Instalación
 
-**1. Clone and install dependencies**
+**1. Clonar e instalar dependencias**
 
 ```bash
 git clone https://github.com/JosePabloArceRueda/ticoautos-backend.git
@@ -26,90 +26,90 @@ cd ticoautos-backend
 npm install
 ```
 
-**2. Configure environment variables**
+**2. Configurar variables de entorno**
 
 ```bash
 cp .env.example .env
 ```
 
-**3. Start the TSE API**
+**3. Iniciar la API del TSE**
 
-The TSE Padrón Electoral API must be running before starting this server. Follow the instructions in [github.com/Santaval/tse-api](https://github.com/Santaval/tse-api) and make sure it is accessible at the URL configured in `TSE_API_URL`.
+La API del Padrón Electoral debe estar corriendo antes de iniciar este servidor. Seguí las instrucciones en [github.com/Santaval/tse-api](https://github.com/Santaval/tse-api) y asegurate de que sea accesible en la URL configurada en `TSE_API_URL`.
 
-**4. Start the server**
+**4. Iniciar el servidor**
 
 ```bash
-# Development (with auto-reload)
+# Desarrollo (con auto-recarga)
 npm run dev
 
-# Production
+# Producción
 npm start
 ```
 
-The server starts at `http://localhost:3000` by default.
+El servidor inicia en `http://localhost:3000` por defecto.
 
 ---
 
-## Environment Variables
+## Variables de entorno
 
-| Variable | Description | Example |
+| Variable | Descripción | Ejemplo |
 |----------|-------------|---------|
-| `PORT` | Server port | `3000` |
-| `MONGO_URI` | MongoDB connection string | `mongodb://localhost:27017/ticoautos` |
-| `JWT_SECRET` | Secret key for signing JWT tokens | any long random string |
-| `JWT_EXPIRES_IN` | JWT expiration time | `1d` |
-| `BACKEND_URL` | Full URL of this server | `http://localhost:3000` |
-| `FRONTEND_URL` | Full URL of the frontend app | `http://localhost:5173` |
-| `TSE_API_URL` | TSE Padrón Electoral API endpoint | `http://localhost:4000/api/v2/cedula` |
-| `GOOGLE_CLIENT_ID` | Google OAuth2 client ID | from Google Cloud Console |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth2 client secret | from Google Cloud Console |
-| `GOOGLE_CALLBACK_URL` | Google OAuth2 callback URL | `http://localhost:3000/api/auth/google/callback` |
-| `TWILIO_ACCOUNT_SID` | Twilio account SID | `ACxxxxxxxxxxxxxxxx` |
-| `TWILIO_AUTH_TOKEN` | Twilio auth token | from Twilio Console |
-| `TWILIO_PHONE_NUMBER` | Twilio number used to send SMS | `+1xxxxxxxxxx` |
-| `SENDGRID_API_KEY` | SendGrid API key | `SG.xxxxxxxxxx` |
-| `SENDGRID_FROM_EMAIL` | Verified sender email in SendGrid | `noreply@ticoautos.com` |
-| `GROQ_API_KEY` | Groq API key for AI validation | `gsk_xxxxxxxxxx` |
+| `PORT` | Puerto del servidor | `3000` |
+| `MONGO_URI` | Cadena de conexión a MongoDB | `mongodb://localhost:27017/ticoautos` |
+| `JWT_SECRET` | Clave secreta para firmar tokens JWT | cualquier string largo y aleatorio |
+| `JWT_EXPIRES_IN` | Tiempo de expiración del JWT | `1d` |
+| `BACKEND_URL` | URL completa de este servidor | `http://localhost:3000` |
+| `FRONTEND_URL` | URL completa del frontend | `http://localhost:5173` |
+| `TSE_API_URL` | Endpoint de la API del Padrón Electoral | `http://localhost:4000/api/v2/cedula` |
+| `GOOGLE_CLIENT_ID` | Client ID de Google OAuth2 | desde Google Cloud Console |
+| `GOOGLE_CLIENT_SECRET` | Client secret de Google OAuth2 | desde Google Cloud Console |
+| `GOOGLE_CALLBACK_URL` | URL de callback de Google OAuth2 | `http://localhost:3000/api/auth/google/callback` |
+| `TWILIO_ACCOUNT_SID` | Account SID de Twilio | `ACxxxxxxxxxxxxxxxx` |
+| `TWILIO_AUTH_TOKEN` | Auth token de Twilio | desde la consola de Twilio |
+| `TWILIO_PHONE_NUMBER` | Número de Twilio para enviar SMS | `+1xxxxxxxxxx` |
+| `SENDGRID_API_KEY` | API key de SendGrid | `SG.xxxxxxxxxx` |
+| `SENDGRID_FROM_EMAIL` | Correo remitente verificado en SendGrid | `noreply@ticoautos.com` |
+| `GROQ_API_KEY` | API key de Groq | `gsk_xxxxxxxxxx` |
 
 ---
 
-## Authentication
+## Autenticación
 
-The API uses JWT Bearer tokens. Include the token in every protected request:
+La API usa tokens JWT en el encabezado de cada solicitud protegida:
 
 ```
 Authorization: Bearer <token>
 ```
 
-The login flow has two steps due to SMS-based 2FA:
+El flujo de inicio de sesión tiene dos pasos por el 2FA vía SMS:
 
-1. `POST /api/auth/login` returns a `tempToken` and sends an OTP code via SMS
-2. `POST /api/auth/verify-2fa` exchanges the `tempToken` and OTP for the final `accessToken`
+1. `POST /api/auth/login` devuelve un `tempToken` y envía un código OTP por SMS
+2. `POST /api/auth/verify-2fa` intercambia el `tempToken` y el código OTP por el `accessToken` final
 
-New accounts start with `status: pending` and must verify their email before they can log in.
+Las cuentas nuevas quedan en `status: pending` y deben verificar su correo antes de poder ingresar.
 
 ---
 
-## API Reference
+## Referencia de endpoints
 
-### Authentication
+### Autenticación
 
-| Method | Path | Auth | Description |
+| Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| POST | `/api/auth/register` | No | Register with cedula, email, password and phone. Name and last name are auto-filled from the TSE registry. Sends a verification email. |
-| POST | `/api/auth/login` | No | Login with email and password. Returns a `tempToken` and sends an SMS code. |
-| POST | `/api/auth/verify-2fa` | No | Verify the SMS code using the `tempToken`. Returns the final `accessToken` and user data. |
-| GET | `/api/auth/verify-email?token=` | No | Activates the account from the link sent by email. Redirects to the frontend. |
-| GET | `/api/auth/validate-cedula/:cedula` | No | Validates a cedula against the TSE registry and returns name, last name and birth date. Used by the frontend to auto-fill the registration form. |
-| GET | `/api/auth/google` | No | Redirects to the Google consent screen. |
-| GET | `/api/auth/google/callback` | No | Google OAuth callback. Redirects to the frontend with a token or to a registration completion page for new users. |
-| POST | `/api/auth/google/complete-registration` | No | Completes registration for new Google users. Requires `tempToken`, `cedula` and `phone`. |
+| POST | `/api/auth/register` | No | Registro con cédula, correo, contraseña y teléfono. El nombre y apellidos se autocompletan desde el Padrón TSE. Envía un correo de verificación. |
+| POST | `/api/auth/login` | No | Inicio de sesión con correo y contraseña. Devuelve un `tempToken` y envía un código por SMS. |
+| POST | `/api/auth/verify-2fa` | No | Verifica el código SMS usando el `tempToken`. Devuelve el `accessToken` final y los datos del usuario. |
+| GET | `/api/auth/verify-email?token=` | No | Activa la cuenta desde el enlace enviado por correo. Redirige al frontend. |
+| GET | `/api/auth/validate-cedula/:cedula` | No | Valida una cédula contra el Padrón TSE y devuelve nombre, apellidos y fecha de nacimiento. Usado por el frontend para autocompletar el formulario. |
+| GET | `/api/auth/google` | No | Redirige a la pantalla de consentimiento de Google. |
+| GET | `/api/auth/google/callback` | No | Callback de Google OAuth. Redirige al frontend con un token o a la página de completar registro para usuarios nuevos. |
+| POST | `/api/auth/google/complete-registration` | No | Completa el registro para usuarios nuevos de Google. Requiere `tempToken`, `cedula` y `phone`. |
 
 **POST /api/auth/register**
 ```json
 {
   "cedula": "123456789",
-  "email": "user@example.com",
+  "email": "usuario@ejemplo.com",
   "password": "minimo8chars",
   "phone": "88887777"
 }
@@ -117,7 +117,7 @@ New accounts start with `status: pending` and must verify their email before the
 
 **POST /api/auth/login**
 ```json
-{ "email": "user@example.com", "password": "minimo8chars" }
+{ "email": "usuario@ejemplo.com", "password": "minimo8chars" }
 ```
 
 **POST /api/auth/verify-2fa**
@@ -127,44 +127,44 @@ New accounts start with `status: pending` and must verify their email before the
 
 ---
 
-### User Profile
+### Perfil de usuario
 
-| Method | Path | Auth | Description |
+| Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| GET | `/api/me` | Yes | Returns the authenticated user's profile: `name`, `lastName`, `cedula`, `phone`, `birthDate`, `authProvider` and `status`. |
-| GET | `/api/me/vehicles` | Yes | Returns the authenticated user's vehicles with pagination. Accepts the same query filters as the public vehicles list. |
+| GET | `/api/me` | Sí | Devuelve el perfil del usuario autenticado: `name`, `lastName`, `cedula`, `phone`, `birthDate`, `authProvider` y `status`. |
+| GET | `/api/me/vehicles` | Sí | Devuelve los vehículos del usuario autenticado con paginación. Acepta los mismos filtros que el listado público. |
 
 ---
 
-### Vehicles
+### Vehículos
 
-| Method | Path | Auth | Description |
+| Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| GET | `/api/vehicles` | No | List all vehicles. Filters: `brand`, `model`, `minYear`, `maxYear`, `minPrice`, `maxPrice`, `status`. Sort: `sort=price:asc` or `sort=year:desc`. Paginated via `page` and `limit`. |
-| GET | `/api/vehicles/:id` | No | Get a single vehicle by ID. |
-| POST | `/api/vehicles` | Yes | Create a vehicle. Body: `brand`, `model`, `year`, `price`, `description` (optional), `status` (optional, default `AVAILABLE`). |
-| PUT | `/api/vehicles/:id` | Yes | Update a vehicle. Owner only. All fields are optional. |
-| DELETE | `/api/vehicles/:id` | Yes | Delete a vehicle. Owner only. |
-| PATCH | `/api/vehicles/:id/mark-sold` | Yes | Mark a vehicle as sold. Owner only. |
-| POST | `/api/vehicles/:id/upload` | Yes | Upload images (up to 5). Multipart form-data, field name: `images`. |
-| DELETE | `/api/vehicles/:id/images/:imageUrl` | Yes | Remove a specific image by URL. Owner only. |
+| GET | `/api/vehicles` | No | Listado público de vehículos. Filtros: `brand`, `model`, `minYear`, `maxYear`, `minPrice`, `maxPrice`, `status`. Orden: `sort=price:asc` o `sort=year:desc`. Paginado con `page` y `limit`. |
+| GET | `/api/vehicles/:id` | No | Detalle de un vehículo por ID. |
+| POST | `/api/vehicles` | Sí | Crear un vehículo. Body: `brand`, `model`, `year`, `price`, `description` (opcional), `status` (opcional, default `AVAILABLE`). |
+| PUT | `/api/vehicles/:id` | Sí | Actualizar un vehículo. Solo el propietario. Todos los campos son opcionales. |
+| DELETE | `/api/vehicles/:id` | Sí | Eliminar un vehículo. Solo el propietario. |
+| PATCH | `/api/vehicles/:id/mark-sold` | Sí | Marcar un vehículo como vendido. Solo el propietario. |
+| POST | `/api/vehicles/:id/upload` | Sí | Subir imágenes (hasta 5). Multipart form-data, nombre del campo: `images`. |
+| DELETE | `/api/vehicles/:id/images/:imageUrl` | Sí | Eliminar una imagen específica por URL. Solo el propietario. |
 
 ---
 
 ### Chat
 
-The chat system allows interested buyers to contact vehicle owners. Messages alternate between both parties. AI validation blocks any message that contains contact information such as phone numbers, emails, social media handles or links.
+El sistema de chat permite a los compradores interesados contactar a los dueños de vehículos. Los mensajes se alternan entre ambas partes. La IA bloquea cualquier mensaje que contenga información de contacto como teléfonos, correos, redes sociales o enlaces.
 
-| Method | Path | Auth | Description |
+| Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| POST | `/api/vehicles/:vehicleId/chat` | Yes | Start a new chat or add the first message on a vehicle. Body: `text` (1-500 chars). |
-| POST | `/api/chats/:chatId/message` | Yes | Send a message in an existing chat. The same user cannot send two consecutive messages. Body: `text` (1-500 chars). |
-| GET | `/api/chats/:chatId/messages` | Yes | Get the message history of a chat. Paginated via `page` and `limit`. |
-| GET | `/api/me/chats/as-interested` | Yes | Get all chats where the authenticated user is the buyer. Includes the last message of each chat. |
-| GET | `/api/me/chats/as-owner` | Yes | Get all chats for the authenticated user's vehicles. Includes the last message of each chat. |
-| GET | `/api/me/chats/status/:vehicleId` | Yes | Check if a chat exists with a specific vehicle and return the user's role (`interested` or `owner`). |
+| POST | `/api/vehicles/:vehicleId/chat` | Sí | Inicia un chat o agrega el primer mensaje en un vehículo. Body: `text` (1-500 caracteres). |
+| POST | `/api/chats/:chatId/message` | Sí | Envía un mensaje en un chat existente. El mismo usuario no puede enviar dos mensajes consecutivos. Body: `text` (1-500 caracteres). |
+| GET | `/api/chats/:chatId/messages` | Sí | Obtiene el historial de mensajes de un chat. Paginado con `page` y `limit`. |
+| GET | `/api/me/chats/as-interested` | Sí | Lista todos los chats donde el usuario autenticado es el comprador interesado. Incluye el último mensaje de cada chat. |
+| GET | `/api/me/chats/as-owner` | Sí | Lista todos los chats de los vehículos del usuario autenticado. Incluye el último mensaje de cada chat. |
+| GET | `/api/me/chats/status/:vehicleId` | Sí | Verifica si existe un chat con un vehículo específico y devuelve el rol del usuario (`interested` u `owner`). |
 
-When a message is blocked by AI, the response is `422` with:
+Cuando la IA bloquea un mensaje, la respuesta es `422` con:
 ```json
 {
   "error": "Mensaje rechazado",
@@ -176,18 +176,18 @@ When a message is blocked by AI, the response is `422` with:
 
 ## GraphQL
 
-A read-only GraphQL endpoint is available alongside the REST API. It uses the same JWT token for authentication. There is no playground — send requests with `Content-Type: application/json`.
+Hay un endpoint GraphQL de solo lectura disponible junto a la API REST. Usa el mismo token JWT para autenticación. No hay playground — enviá las solicitudes con `Content-Type: application/json`.
 
 **Endpoint:** `POST /graphql`
 
-**Available queries:**
+**Consultas disponibles:**
 
 ```graphql
-# Public
+# Públicas
 vehicles(page, limit, brand, model, minYear, maxYear, minPrice, maxPrice, status, sort): PaginatedVehicles!
 vehicle(id: ID!): Vehicle
 
-# Protected (require Authorization header)
+# Protegidas (requieren encabezado Authorization)
 me: User
 myVehicles(page, limit, brand, model, minYear, maxYear, minPrice, maxPrice, status, sort): PaginatedVehicles!
 myChatsAsInterested(page, limit): [Chat!]!
@@ -195,11 +195,11 @@ myChatsAsOwner(page, limit): [Chat!]!
 chatMessages(chatId: ID!, page, limit): PaginatedMessages!
 ```
 
-All mutations are handled through the REST API.
+Todas las operaciones de escritura se manejan exclusivamente a través de la API REST.
 
 ---
 
-## Project Structure
+## Estructura del proyecto
 
 ```
 src/
@@ -240,13 +240,13 @@ src/
 
 ---
 
-## External Services
+## Servicios externos
 
-| Service | Purpose | Required |
-|---------|---------|----------|
-| MongoDB | Primary database | Yes |
-| TSE Padrón API | Cedula validation and name auto-fill | Yes |
-| SendGrid | Account verification emails | Yes |
-| Twilio | SMS 2FA codes | Yes |
-| Google OAuth | Social login | Yes |
-| Groq | AI validation of chat messages | Yes |
+| Servicio | Propósito | Requerido |
+|----------|-----------|-----------|
+| MongoDB | Base de datos principal | Sí |
+| API Padrón TSE | Validación de cédula y autocompletado de nombre | Sí |
+| SendGrid | Correos de verificación de cuenta | Sí |
+| Twilio | Códigos 2FA por SMS | Sí |
+| Google OAuth | Inicio de sesión con Google | Sí |
+| Groq | Validación de mensajes de chat con IA | Sí |
